@@ -31,7 +31,10 @@ export async function handleAdminCallback(bot: TelegramBot, query: any) {
 
     bot.sendMessage(
       process.env.ADMIN_GROUP_ID!,
-      `✍️ @${query.from.username || "admin"} is answering question #${questionId}. Please type your answer:`
+      `✍️ <b>@${
+        query.from.username || "admin"
+      }</b> is preparing an answer.\n\n📬 <b>Question ID:</b> #${questionId}\n\n💬 Please type your answer:`,
+      { parse_mode: "HTML" }
     );
   }
 
@@ -40,9 +43,12 @@ export async function handleAdminCallback(bot: TelegramBot, query: any) {
     const answerId = data.split("_")[2];
     activeAnswers.set(query.from.id, `update_${answerId}`);
 
-    bot.sendMessage(
+    await bot.sendMessage(
       process.env.ADMIN_GROUP_ID!,
-      `✏️ @${query.from.username || "admin"}: Please type the new answer text to update Answer #${answerId}.`
+      `✏️ <b>@${
+        query.from.username || "admin"
+      }</b> is updating an answer.\n\n🆔 <b>Answer ID:</b> #${answerId}\n\n💬 Please type the new answer text:`,
+      { parse_mode: "HTML" }
     );
   }
 
@@ -53,9 +59,10 @@ export async function handleAdminCallback(bot: TelegramBot, query: any) {
       const answer = await deleteAnswer(answerId); // deletes from DB
       await deleteAnswerMessage(bot, answer);
 
-      bot.sendMessage(
+      await bot.sendMessage(
         process.env.ADMIN_GROUP_ID!,
-        `🗑️ Answer #${answerId} deleted successfully.`
+        `🗑️ <b>Answer Deleted Successfully</b>\n\n🆔 <b>Answer ID:</b> #${answerId}`,
+        { parse_mode: "HTML" }
       );
 
       // Notify user about deletion
@@ -63,14 +70,16 @@ export async function handleAdminCallback(bot: TelegramBot, query: any) {
       if (question) {
         await bot.sendMessage(
           parseInt(question.user.telegramId),
-          `❌ Your answer to the question: "${question.text}" has been deleted by the admin.`
+          `❌ <b>Your Answer Has Been Deleted</b>\n\n📬 <b>Your Question:</b>\n<blockquote>❓ ${question.text}</blockquote>\n\n⚠️ <i>The admin has removed the answer related to this question.</i>`,
+          { parse_mode: "HTML" }
         );
       }
     } catch (err) {
       console.error(err);
-      bot.sendMessage(
+      await bot.sendMessage(
         process.env.ADMIN_GROUP_ID!,
-        `❌ Failed to delete Answer #${answerId}.`
+        `❌ <b>Failed to Delete Answer</b>\n\n🆔 <b>Answer ID:</b> #${answerId}\n⚠️ Please check the logs for more details.`,
+        { parse_mode: "HTML" }
       );
     }
   }
@@ -92,7 +101,11 @@ export async function handleAdminMessage(
     if (activeTask.startsWith("update_")) {
       const answerId = activeTask.split("_")[1];
 
-      bot.sendMessage(process.env.ADMIN_GROUP_ID!, `⏳ Updating Answer #${answerId}...`);
+      await bot.sendMessage(
+        process.env.ADMIN_GROUP_ID!,
+        `⏳ <b>Updating Answer</b>\n\n🆔 <b>Answer ID:</b> #${answerId}\n💬 Please wait...`,
+        { parse_mode: "HTML" }
+      );
 
       const updated = await updateAnswer(answerId, text); // updates DB
       activeAnswers.delete(adminId);
@@ -100,15 +113,21 @@ export async function handleAdminMessage(
       // 🔹 delete old Telegram message, not DB record
       await deleteAnswerMessage(bot, updated);
 
-      bot.sendMessage(
+      await bot.sendMessage(
         process.env.ADMIN_GROUP_ID!,
-        `✅ Answer #${answerId} updated by @${msg.from?.username || "admin"}\n\nNew Answer: "${updated.text}"`,
+        `✅ <b>Answer Updated</b>\n\n🆔 <b>Answer ID:</b> #${answerId}\n👤 Updated by: @${
+          msg.from?.username || "admin"
+        }\n\n💡 <b>New Answer:</b>\n<blockquote>${updated.text}</blockquote>`,
         {
+          parse_mode: "HTML",
           reply_markup: {
             inline_keyboard: [
               [
-                { text: "✏️ Update Again", callback_data: `update_answer_${answerId}` },
-                { text: "🗑️ Delete", callback_data: `delete_answer_${answerId}` },
+                {
+                  text: "Update Again",
+                  callback_data: `update_answer_${answerId}`,
+                },
+                { text: "Delete", callback_data: `delete_answer_${answerId}` },
               ],
             ],
           },
@@ -118,7 +137,8 @@ export async function handleAdminMessage(
       // 🔹 send updated answer to user
       const sentMsg = await bot.sendMessage(
         parseInt(updated.question.user.telegramId),
-        `📬 Your question: "${updated.question.text}"\n✅ Updated Answer: "${updated.text}"`
+        `📬 <b>Your Question:</b>\n<blockquote>❓ ${updated.question.text}</blockquote>\n\n✅ <b>Updated Answer:</b>\n<blockquote>💡 ${updated.text}</blockquote>`,
+        { parse_mode: "HTML" }
       );
 
       // 🔹 save new message meta
@@ -135,23 +155,36 @@ export async function handleAdminMessage(
     const question = await getQuestionById(questionId);
 
     if (!question) {
-      bot.sendMessage(process.env.ADMIN_GROUP_ID!, `❌ Question ID ${questionId} not found.`);
+      await bot.sendMessage(
+        process.env.ADMIN_GROUP_ID!,
+        `❌ <b>Question Not Found</b>\n\n🆔 <b>Question ID:</b> #${questionId}\n⚠️ Please verify the ID and try again.`,
+        { parse_mode: "HTML" }
+      );
+
       return;
     }
 
-    bot.sendMessage(process.env.ADMIN_GROUP_ID!, `⏳ Saving answer for Question #${questionId}...`);
+    await bot.sendMessage(
+      process.env.ADMIN_GROUP_ID!,
+      `⏳ <b>Saving Answer</b>\n\n🆔 <b>Question ID:</b> #${questionId}\n💬 Please wait...`,
+      { parse_mode: "HTML" }
+    );
+
     const answer = await createAnswer(questionId, text);
     activeAnswers.delete(adminId);
 
-    bot.sendMessage(
+    await bot.sendMessage(
       process.env.ADMIN_GROUP_ID!,
-      `✅ Answer saved for Question #${questionId} by @${msg.from?.username || "admin"}\n\nAnswer: "${answer.text}"`,
+      `✅ <b>Answer Saved</b>\n\n🆔 <b>Question ID:</b> #${questionId}\n👤 Saved by: @${
+        msg.from?.username || "admin"
+      }\n\n💡 <b>Answer:</b>\n<blockquote>${answer.text}</blockquote>`,
       {
+        parse_mode: "HTML",
         reply_markup: {
           inline_keyboard: [
             [
-              { text: "✏️ Update", callback_data: `update_answer_${answer.id}` },
-              { text: "🗑️ Delete", callback_data: `delete_answer_${answer.id}` },
+              { text: "Update", callback_data: `update_answer_${answer.id}` },
+              { text: "Delete", callback_data: `delete_answer_${answer.id}` },
             ],
           ],
         },
@@ -161,7 +194,8 @@ export async function handleAdminMessage(
     // Notify user privately
     const sentMsg = await bot.sendMessage(
       parseInt(question.user.telegramId),
-      `📬 Your question: "${question.text}"\n✅ Answer: "${answer.text}"`
+      `📬 <b>Your Question:</b>\n<blockquote>${question.text}</blockquote>\n\n✅ <b>Answer:</b>\n<blockquote>${answer.text}</blockquote>`,
+      { parse_mode: "HTML" }
     );
 
     await saveAnswerMessageMeta(answer.id, {
