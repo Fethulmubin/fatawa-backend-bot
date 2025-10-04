@@ -29,4 +29,7 @@ model Answer {
   question   Question @relation(fields: [questionId], references: [id])
   questionId String   @unique
   createdAt  DateTime @default(now())
+
+  telegramChatId    String?
+  telegramMessageId Int?
 }
