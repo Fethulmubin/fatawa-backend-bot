@@ -5,6 +5,7 @@ import "./bot/index"; // start the bot
 const app = express();
 app.use(express.json());
 
-// app.use("/api/questions", questionRoutes);
+// Optional root route
+app.get("/", (_, res) => res.send("Fatawa bot is running!"));
 
 export default app;
